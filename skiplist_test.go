@@ -10,12 +10,30 @@ import (
 var benchList *SkipList
 var discard *Element
 
+type MySkey int64
+
+func (m MySkey) Great(t Skey) bool {
+	return m > t.(MySkey)
+}
+
+func (m MySkey) GreatE(t Skey) bool  {
+	return m >= t.(MySkey)
+}
+
+func (m MySkey) Less(t Skey) bool {
+	return m < t.(MySkey)
+}
+
+func (m MySkey) LessE(t Skey) bool  {
+	return m <= t.(MySkey)
+}
+
 func init() {
 	// Initialize a big SkipList for the Get() benchmark
 	benchList = New()
 
 	for i := 0; i <= 10000000; i++ {
-		benchList.Set(float64(i), [1]byte{})
+		benchList.Set(MySkey(i), [1]byte{})
 	}
 
 	// Display the sizes of our basic structs
@@ -41,7 +59,7 @@ func checkSanity(list *SkipList, t *testing.T) {
 		cnt := 1
 
 		for next.next[k] != nil {
-			if !(next.next[k].key >= next.key) {
+			if !(next.next[k].key.GreatE(next.key)) {
 				t.Fatalf("next key value must be greater than prev key value. [next:%v] [prev:%v]", next.next[k].key, next.key)
 			}
 
@@ -66,28 +84,28 @@ func TestBasicIntCRUD(t *testing.T) {
 
 	list = New()
 
-	list.Set(10, 1)
-	list.Set(60, 2)
-	list.Set(30, 3)
-	list.Set(20, 4)
-	list.Set(90, 5)
+	list.Set(MySkey(10), 1)
+	list.Set(MySkey(60), 2)
+	list.Set(MySkey(30), 3)
+	list.Set(MySkey(20), 4)
+	list.Set(MySkey(90), 5)
 	checkSanity(list, t)
 
-	list.Set(30, 9)
+	list.Set(MySkey(30), 9)
 	checkSanity(list, t)
 
-	list.Remove(0)
-	list.Remove(20)
+	list.Remove(MySkey(0))
+	list.Remove(MySkey(20))
 	checkSanity(list, t)
 
-	v1 := list.Get(10)
-	v2 := list.Get(60)
-	v3 := list.Get(30)
-	v4 := list.Get(20)
-	v5 := list.Get(90)
-	v6 := list.Get(0)
+	v1 := list.Get(MySkey(10))
+	v2 := list.Get(MySkey(60))
+	v3 := list.Get(MySkey(30))
+	v4 := list.Get(MySkey(20))
+	v5 := list.Get(MySkey(90))
+	v6 := list.Get(MySkey(0))
 
-	if v1 == nil || v1.value.(int) != 1 || v1.key != 10 {
+	if v1 == nil || v1.value.(int) != 1 || float64(v1.key.(MySkey)) != 10 {
 		t.Fatal(`wrong "10" value (expected "1")`, v1)
 	}
 
@@ -126,7 +144,7 @@ func TestChangeLevel(t *testing.T) {
 	}
 
 	for i = 1; i <= 201; i++ {
-		list.Set(i, i*10)
+		list.Set(MySkey(i), i*10)
 	}
 
 	checkSanity(list, t)
@@ -136,7 +154,7 @@ func TestChangeLevel(t *testing.T) {
 	}
 
 	for c := list.Front(); c != nil; c = c.Next() {
-		if c.key*10 != c.value.(float64) {
+		if float64(c.key.(MySkey))*10 != c.value.(float64) {
 			t.Fatal("wrong list element value")
 		}
 	}
@@ -144,7 +162,7 @@ func TestChangeLevel(t *testing.T) {
 
 func TestMaxLevel(t *testing.T) {
 	list := NewWithMaxLevel(DefaultMaxLevel + 1)
-	list.Set(0, struct{}{})
+	list.Set(MySkey(0), struct{}{})
 }
 
 func TestChangeProbability(t *testing.T) {
@@ -167,14 +185,14 @@ func TestConcurrency(t *testing.T) {
 	wg.Add(2)
 	go func() {
 		for i := 0; i < 100000; i++ {
-			list.Set(float64(i), i)
+			list.Set(MySkey(float64(i)), i)
 		}
 		wg.Done()
 	}()
 
 	go func() {
 		for i := 0; i < 100000; i++ {
-			list.Get(float64(i))
+			list.Get(MySkey(i))
 		}
 		wg.Done()
 	}()
@@ -190,7 +208,7 @@ func BenchmarkIncSet(b *testing.B) {
 	list := New()
 
 	for i := 0; i < b.N; i++ {
-		list.Set(float64(i), [1]byte{})
+		list.Set(MySkey(i), [1]byte{})
 	}
 
 	b.SetBytes(int64(b.N))
@@ -199,7 +217,7 @@ func BenchmarkIncSet(b *testing.B) {
 func BenchmarkIncGet(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		res := benchList.Get(float64(i))
+		res := benchList.Get(MySkey(i))
 		if res == nil {
 			b.Fatal("failed to Get an element that should exist")
 		}
@@ -213,7 +231,7 @@ func BenchmarkDecSet(b *testing.B) {
 	list := New()
 
 	for i := b.N; i > 0; i-- {
-		list.Set(float64(i), [1]byte{})
+		list.Set(MySkey(i), [1]byte{})
 	}
 
 	b.SetBytes(int64(b.N))
@@ -222,7 +240,7 @@ func BenchmarkDecSet(b *testing.B) {
 func BenchmarkDecGet(b *testing.B) {
 	b.ReportAllocs()
 	for i := b.N; i > 0; i-- {
-		res := benchList.Get(float64(i))
+		res := benchList.Get(MySkey(i))
 		if res == nil {
 			b.Fatal("failed to Get an element that should exist", i)
 		}

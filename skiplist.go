@@ -21,14 +21,14 @@ func (list *SkipList) Front() *Element {
 // If the key exists, it updates the value in the existing node.
 // Returns a pointer to the new element.
 // Locking is optimistic and happens only after searching.
-func (list *SkipList) Set(key float64, value interface{}) *Element {
+func (list *SkipList) Set(key Skey, value interface{}) *Element {
 	list.mutex.Lock()
 	defer list.mutex.Unlock()
 
 	var element *Element
 	prevs := list.getPrevElementNodes(key)
 
-	if element = prevs[0].next[0]; element != nil && element.key <= key {
+	if element = prevs[0].next[0]; element != nil && element.key.LessE(key) {
 		element.value = value
 		return element
 	}
@@ -52,7 +52,7 @@ func (list *SkipList) Set(key float64, value interface{}) *Element {
 
 // Get finds an element by key. It returns element pointer if found, nil if not found.
 // Locking is optimistic and happens only after searching with a fast check for deletion after locking.
-func (list *SkipList) Get(key float64) *Element {
+func (list *SkipList) Get(key Skey) *Element {
 	list.mutex.Lock()
 	defer list.mutex.Unlock()
 
@@ -62,13 +62,13 @@ func (list *SkipList) Get(key float64) *Element {
 	for i := list.maxLevel - 1; i >= 0; i-- {
 		next = prev.next[i]
 
-		for next != nil && key > next.key {
+		for next != nil && key.Great(next.key) {
 			prev = &next.elementNode
 			next = next.next[i]
 		}
 	}
 
-	if next != nil && next.key <= key {
+	if next != nil && next.key.LessE(key) {
 		return next
 	}
 
@@ -78,13 +78,13 @@ func (list *SkipList) Get(key float64) *Element {
 // Remove deletes an element from the list.
 // Returns removed element pointer if found, nil if not found.
 // Locking is optimistic and happens only after searching with a fast check on adjacent nodes after locking.
-func (list *SkipList) Remove(key float64) *Element {
+func (list *SkipList) Remove(key Skey) *Element {
 	list.mutex.Lock()
 	defer list.mutex.Unlock()
 	prevs := list.getPrevElementNodes(key)
 
 	// found the element, remove it
-	if element := prevs[0].next[0]; element != nil && element.key <= key {
+	if element := prevs[0].next[0]; element != nil && element.key.LessE(key) {
 		for k, v := range element.next {
 			prevs[k].next[k] = v
 		}
@@ -100,7 +100,7 @@ func (list *SkipList) Remove(key float64) *Element {
 // Finds the previous nodes on each level relative to the current Element and
 // caches them. This approach is similar to a "search finger" as described by Pugh:
 // http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.17.524
-func (list *SkipList) getPrevElementNodes(key float64) []*elementNode {
+func (list *SkipList) getPrevElementNodes(key Skey) []*elementNode {
 	var prev *elementNode = &list.elementNode
 	var next *Element
 
@@ -109,7 +109,7 @@ func (list *SkipList) getPrevElementNodes(key float64) []*elementNode {
 	for i := list.maxLevel - 1; i >= 0; i-- {
 		next = prev.next[i]
 
-		for next != nil && key > next.key {
+		for next != nil && key.Great(next.key) {
 			prev = &next.elementNode
 			next = next.next[i]
 		}
