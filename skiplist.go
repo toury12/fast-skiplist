@@ -96,6 +96,26 @@ func (list *SkipList) Remove(key Skey) *Element {
 	return nil
 }
 
+func (list *SkipList) RemoveFront() *Element {
+	list.mutex.Lock()
+	defer list.mutex.Unlock()
+	e := list.Front()
+	prevs := list.getPrevElementNodes(e.key)
+
+	// found the element, remove it
+	if element := prevs[0].next[0]; element != nil && element.key.LessE(e.key) {
+		for k, v := range element.next {
+			prevs[k].next[k] = v
+		}
+
+		list.Length--
+		return element
+	}
+
+	return nil
+
+}
+
 // getPrevElementNodes is the private search mechanism that other functions use.
 // Finds the previous nodes on each level relative to the current Element and
 // caches them. This approach is similar to a "search finger" as described by Pugh:
