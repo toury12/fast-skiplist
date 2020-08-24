@@ -14,7 +14,21 @@ const (
 
 // Front returns the head node of the list.
 func (list *SkipList) Front() *Element {
-	return list.next[0]
+	list.mutex.Lock()
+	defer list.mutex.Unlock()
+
+	FrontStart:
+		element := list.next[0]
+		if element != nil {
+			if _, ok := list.exists[element.key.FilterValue()]; ok {
+				return element
+			} else {
+				// 字典中被删除了
+				list._remove(element.key)
+				goto FrontStart
+			}
+		}
+	return nil
 }
 
 // Set inserts a value in the list with the specified key, ordered by the key.
@@ -45,6 +59,7 @@ func (list *SkipList) Set(key Skey, value interface{}) *Element {
 		element.next[i] = prevs[i].next[i]
 		prevs[i].next[i] = element
 	}
+	list.exists[key.FilterValue()] = true
 
 	list.Length++
 	return element
@@ -69,19 +84,21 @@ func (list *SkipList) Get(key Skey) *Element {
 	}
 
 	if next != nil && next.key.LessE(key) {
-		return next
+		// TODO 可以前置，更快搜索
+		if _, ok := list.exists[key.FilterValue()]; ok {
+			return next
+		} else {
+			// 字典中被删除了
+			list._remove(key)
+		}
 	}
 
 	return nil
 }
 
-// Remove deletes an element from the list.
-// Returns removed element pointer if found, nil if not found.
-// Locking is optimistic and happens only after searching with a fast check on adjacent nodes after locking.
-func (list *SkipList) Remove(key Skey) *Element {
-	list.mutex.Lock()
-	defer list.mutex.Unlock()
+func (list *SkipList) _remove(key Skey) *Element  {
 	prevs := list.getPrevElementNodes(key)
+	delete(list.exists, key.FilterValue())
 
 	// found the element, remove it
 	if element := prevs[0].next[0]; element != nil && element.key.LessE(key) {
@@ -96,24 +113,41 @@ func (list *SkipList) Remove(key Skey) *Element {
 	return nil
 }
 
+// Remove deletes an element from the list.
+// Returns removed element pointer if found, nil if not found.
+// Locking is optimistic and happens only after searching with a fast check on adjacent nodes after locking.
+func (list *SkipList) Remove(key Skey) *Element {
+	list.mutex.Lock()
+	defer list.mutex.Unlock()
+	return list._remove(key)
+}
+
+func (list *SkipList) RemoveByFilter(key Skey) *Element {
+	list.mutex.Lock()
+	defer list.mutex.Unlock()
+
+	delete(list.exists, key.FilterValue())
+	return nil
+}
+
 func (list *SkipList) RemoveFront() *Element {
 	list.mutex.Lock()
 	defer list.mutex.Unlock()
-	e := list.Front()
-	prevs := list.getPrevElementNodes(e.key)
 
-	// found the element, remove it
-	if element := prevs[0].next[0]; element != nil && element.key.LessE(e.key) {
-		for k, v := range element.next {
-			prevs[k].next[k] = v
+FrontStart:
+	element := list.next[0]
+	if element != nil {
+		if _, ok := list.exists[element.key.FilterValue()]; ok {
+			// 字典中被删除了
+			list._remove(element.key)
+			return element
+		} else {
+			list._remove(element.key)
+			goto FrontStart
 		}
-
-		list.Length--
-		return element
 	}
 
 	return nil
-
 }
 
 // getPrevElementNodes is the private search mechanism that other functions use.
@@ -186,6 +220,7 @@ func NewWithMaxLevel(maxLevel int) *SkipList {
 		randSource:     rand.New(rand.NewSource(time.Now().UnixNano())),
 		probability:    DefaultProbability,
 		probTable:      probabilityTable(DefaultProbability, maxLevel),
+		exists:         map[string]bool{},
 	}
 }
 

@@ -10,6 +10,7 @@ type Skey interface {
 	GreatE(skey Skey) bool
 	Less(skey Skey) bool
 	LessE(skey Skey) bool
+	FilterValue() string
 }
 
 type elementNode struct {
@@ -47,4 +48,5 @@ type SkipList struct {
 	probTable      []float64
 	mutex          sync.RWMutex
 	prevNodesCache []*elementNode
+	exists		   map[string]bool
 }

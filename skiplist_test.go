@@ -28,6 +28,10 @@ func (m MySkey) LessE(t Skey) bool  {
 	return m <= t.(MySkey)
 }
 
+func (m MySkey) FilterValue() string {
+	return fmt.Sprintf("%d", m)
+}
+
 func init() {
 	// Initialize a big SkipList for the Get() benchmark
 	benchList = New()
@@ -247,4 +251,54 @@ func BenchmarkDecGet(b *testing.B) {
 	}
 
 	b.SetBytes(int64(b.N))
+}
+
+func TestRemoveByFilter(t *testing.T) {
+	list := New()
+
+	list.Set(MySkey(10), 1)
+	list.Set(MySkey(60), 2)
+	list.Set(MySkey(30), 3)
+	list.Set(MySkey(20), 4)
+	list.Set(MySkey(90), 5)
+	checkSanity(list, t)
+
+	list.RemoveByFilter(MySkey(10))
+
+	if list.Get(MySkey(10)) != nil {
+		t.Fatalf("RemoveByFilter when Get failed")
+	}
+
+	if list.Front().key.FilterValue() == MySkey(10).FilterValue() {
+		t.Fatalf("RemoveByFilter when Front failed")
+	}
+}
+
+func TestRemoveFront(t *testing.T) {
+	list := New()
+
+	list.Set(MySkey(10), 1)
+	list.Set(MySkey(60), 2)
+	list.Set(MySkey(30), 3)
+	list.Set(MySkey(20), 4)
+	list.Set(MySkey(90), 5)
+	checkSanity(list, t)
+
+	list.RemoveByFilter(MySkey(10))
+
+	list.Remove(MySkey(30))
+
+	e1 := list.RemoveFront()
+	e2 := list.RemoveFront()
+
+	if e1.key.FilterValue() != MySkey(20).FilterValue() {
+		t.Fatalf("TestRemoveFront when first RemoveFront failed")
+	}
+	if e2.key.FilterValue() != MySkey(60).FilterValue() {
+		t.Fatalf("TestRemoveFront when seccond RemoveFront failed")
+	}
+
+	if list.Length != 1 {
+		t.Fatalf("TestRemoveFront when len equal failed")
+	}
 }
